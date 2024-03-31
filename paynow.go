@@ -45,6 +45,17 @@ type PaymentResponse struct {
 	AuthorizationExpires string `json:"authorizationexpires,omitempty"`
 }
 
+// PaymentStatusResponse defines the structure for the Paynow status update.
+type PaymentStatusResponse struct {
+	Reference       string
+	Amount          float64
+	PaynowReference string
+	PollURL         string
+	Status          string
+	Hash            string
+}
+
+// Initialize Paynow SDK
 func InitializeSDK(integrationID, integrationKey, resultURL, returnURL string) *Paynow {
 	return &Paynow{
 		IntegrationID:  integrationID,
@@ -344,4 +355,38 @@ func generateQRCodeURL(authorizationCode string) string {
 func generateDeepLink(authorizationCode string) string {
 	deepLink := "schinn.wbpycode://innbucks.co.zw?pymInnCode=" + url.QueryEscape(authorizationCode)
 	return deepLink
+}
+
+// FetchPaymentStatus makes a GET request to the specified URL and parses the response into PaymentStatusResponse.
+func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
+
+	// Make the request
+	resp, err := http.Get(requestURL)
+	if err != nil {
+		return nil, fmt.Errorf("error making GET request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	// Assuming the response is URL-encoded, parse it
+	responseValues, err := url.ParseQuery(string(body))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing response string: %v", err)
+	}
+
+	// Manually construct PaymentStatusResponse from parsed values
+	statusResponse := &PaymentStatusResponse{
+		Reference:       responseValues.Get("reference"),
+		PaynowReference: responseValues.Get("paynowreference"),
+		PollURL:         responseValues.Get("pollurl"),
+		Status:          responseValues.Get("status"),
+		Hash:            responseValues.Get("hash"),
+	}
+
+	return statusResponse, nil
 }
