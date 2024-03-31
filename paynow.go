@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -359,7 +363,6 @@ func generateDeepLink(authorizationCode string) string {
 
 // FetchPaymentStatus makes a GET request to the specified URL and parses the response into PaymentStatusResponse.
 func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
-
 	// Make the request
 	resp, err := http.Get(requestURL)
 	if err != nil {
@@ -389,4 +392,42 @@ func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
 	}
 
 	return statusResponse, nil
+}
+
+func poll(requestURL string, maxAttempts int, duration time.Duration) {
+	attempts := 0
+
+	// Create a context with a timeout that generously covers the maximum polling duration
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxAttempts)*duration*time.Second+10*time.Second)
+	defer cancel() // Ensure the context is cancelled to free resources
+
+	// Poll every 15 seconds for payment status until the context is done, condition is met, or maxAttempts is reached
+	wait.PollUntilWithContext(ctx, 15*time.Second, func(ctx context.Context) (bool, error) {
+		attempts++
+		statusResponse, err := FetchPaymentStatus(requestURL)
+		if err != nil {
+			fmt.Printf("Error fetching payment status: %v\n", err)
+			return false, err // Stop polling due to error
+		}
+
+		fmt.Printf("Attempt %d - Checking payment status: %s\n", attempts, statusResponse.Status)
+
+		if statusResponse.Status == "Paid" {
+			fmt.Println("Payment successful.")
+			return true, nil // Stop polling because payment was successful
+		}
+
+		if statusResponse.Status == "Cancelled" {
+			fmt.Println("Payment cancelled.")
+			return true, nil // Stop polling because payment was successful
+		}
+
+		if attempts >= maxAttempts {
+			fmt.Println("Maximum attempts reached without payment confirmation.")
+			return true, fmt.Errorf("payment not confirmed after %d attempts", maxAttempts) // Stop polling
+		}
+
+		// Continue polling
+		return false, nil
+	})
 }

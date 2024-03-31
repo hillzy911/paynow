@@ -18,8 +18,6 @@ func main() {
 		fmt.Println("QR Code URL:", qrCodeURL)
 		fmt.Println("Deep Link:", deepLink)
 	}
-	fmt.Println(response.BrowserURL)
 	fmt.Println(response.PollURL)
-	fmt.Println(response.Error)
-	fmt.Println("Items:", payment.Info())
+	poll(response.PollURL, 4, 10)
 }
