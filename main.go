@@ -13,11 +13,11 @@ func main() {
 
 	if response.AuthorizationCode != "" {
 		// Generate QR code URL and deep link
-		qrCodeURL := generateQRCodeURL(response.AuthorizationCode)
-		deepLink := generateDeepLink(response.AuthorizationCode)
+		qrCodeURL := GenerateQRCodeURL(response.AuthorizationCode)
+		deepLink := GenerateDeepLink(response.AuthorizationCode)
 		fmt.Println("QR Code URL:", qrCodeURL)
 		fmt.Println("Deep Link:", deepLink)
 	}
 	fmt.Println(response.PollURL)
-	poll(response.PollURL, 4, 10)
+	Poll(response.PollURL, 4, 10)
 }

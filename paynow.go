@@ -79,10 +79,7 @@ func (p *Paynow) CreatePayment(reference, authEmail string) *Payment {
 func (pn *Paynow) Send(p *Payment) *PaymentResponse {
 
 	// Generate the hash
-	//hash := GenerateHash(details, integrationKey)
-	hash := generateHash(pn.ResultURL, pn.ReturnURL, p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), url.QueryEscape(p.AuthEmail), "Message", pn.IntegrationKey)
-
-	//details["hash"] = hash
+	hash := GenerateHash(pn.ResultURL, pn.ReturnURL, p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), url.QueryEscape(p.AuthEmail), "Message", pn.IntegrationKey)
 
 	amount := math.Trunc(p.Total()*100) / 100
 
@@ -130,7 +127,7 @@ func (pn *Paynow) Send(p *Payment) *PaymentResponse {
 		return &PaymentResponse{Error: "Error reading response body"}
 	}
 
-	if !validateResponse(string(body), pn.IntegrationKey) {
+	if !ValidateResponse(string(body), pn.IntegrationKey) {
 		return &PaymentResponse{Error: "The response is invalid or has been tampered with."}
 	}
 
@@ -157,8 +154,7 @@ func (pn *Paynow) SendMobile(p *Payment, phone, method string) *PaymentResponse 
 	}
 
 	// Generate the hash
-	//hash := GenerateHash(details, integrationKey)
-	hash := generateHash(url.QueryEscape(pn.ResultURL), url.QueryEscape(pn.ReturnURL), p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), p.AuthEmail, method, phone, "Message", pn.IntegrationKey)
+	hash := GenerateHash(url.QueryEscape(pn.ResultURL), url.QueryEscape(pn.ReturnURL), p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), p.AuthEmail, method, phone, "Message", pn.IntegrationKey)
 
 	uri := "https://www.paynow.co.zw/interface/remotetransaction"
 	requestMethod := "POST"
@@ -206,9 +202,9 @@ func (pn *Paynow) SendMobile(p *Payment, phone, method string) *PaymentResponse 
 		return &PaymentResponse{Error: "Error reading response body"}
 	}
 
-	// if !validateResponse(string(body), pn.IntegrationKey) {
-	// 	return &PaymentResponse{Error: "The response is invalid or has been tampered with."}
-	// }
+	if !ValidateResponse(string(body), pn.IntegrationKey) {
+		return &PaymentResponse{Error: "The response is invalid or has been tampered with."}
+	}
 
 	response, err := NewPaymentResponse(string(body))
 
@@ -285,23 +281,7 @@ func (p *Payment) Info() string {
 }
 
 // GenerateHash creates a SHA512 hash of the concatenated string of payment details.
-func GenerateHash(values map[string]string, integrationKey string) string {
-	// Concatenate the values in the specific order
-	// Note: The values are used as-is, based on the requirement
-	concatenated := values["id"] + values["reference"] + values["amount"] +
-		values["additionalinfo"] + values["returnurl"] + values["resulturl"] +
-		values["status"] + integrationKey
-
-	// Create a SHA512 hash of the concatenated string
-	hasher := sha512.New()
-	hasher.Write([]byte(concatenated))
-	hash := hasher.Sum(nil)
-
-	// Convert the hash to uppercase hexadecimal
-	return strings.ToUpper(hex.EncodeToString(hash))
-}
-
-func generateHash(values ...string) string {
+func GenerateHash(values ...string) string {
 	concatenated := strings.Join(values, "")
 	hasher := sha512.New()
 	hasher.Write([]byte(concatenated))
@@ -311,7 +291,7 @@ func generateHash(values ...string) string {
 
 // validateResponse takes the response body as a string and validates its hash.
 // Replace "YourIntegrationKey" with your actual integration key.
-func validateResponse(body, integrationKey string) bool {
+func ValidateResponse(body, integrationKey string) bool {
 	parts := strings.Split(body, "&")
 	var valuesToHash []string
 
@@ -350,13 +330,13 @@ func validateResponse(body, integrationKey string) bool {
 }
 
 // Function to generate the QR code URL using Google Chart API.
-func generateQRCodeURL(authorizationCode string) string {
+func GenerateQRCodeURL(authorizationCode string) string {
 	qrCodeURL := "https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=" + url.QueryEscape(authorizationCode)
 	return qrCodeURL
 }
 
 // Function to generate the deep link for the InnBucks mobile app.
-func generateDeepLink(authorizationCode string) string {
+func GenerateDeepLink(authorizationCode string) string {
 	deepLink := "schinn.wbpycode://innbucks.co.zw?pymInnCode=" + url.QueryEscape(authorizationCode)
 	return deepLink
 }
@@ -394,7 +374,7 @@ func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
 	return statusResponse, nil
 }
 
-func poll(requestURL string, maxAttempts int, duration time.Duration) {
+func Poll(requestURL string, maxAttempts int, duration time.Duration) {
 	attempts := 0
 
 	// Create a context with a timeout that generously covers the maximum polling duration
