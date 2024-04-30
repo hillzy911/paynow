@@ -382,7 +382,7 @@ func Poll(requestURL string, maxAttempts int, duration time.Duration) {
 	defer cancel() // Ensure the context is cancelled to free resources
 
 	// Poll every 15 seconds for payment status until the context is done, condition is met, or maxAttempts is reached
-	wait.PollUntilWithContext(ctx, 15*time.Second, func(ctx context.Context) (bool, error) {
+	wait.PollUntilWithContext(ctx, duration*time.Second, func(ctx context.Context) (bool, error) {
 		attempts++
 		statusResponse, err := FetchPaymentStatus(requestURL)
 		if err != nil {
