@@ -202,6 +202,12 @@ func (pn *Paynow) SendMobile(p *Payment, phone, method string) *PaymentResponse 
 		return &PaymentResponse{Error: "Error reading response body"}
 	}
 
+	status := "status=Error&error=Failed+to+initiate+transaction%2c+please+try+later"
+
+	if string(body) == status {
+		return &PaymentResponse{Error: "Insufficient Funds"}
+	}
+
 	if !ValidateResponse(string(body), pn.IntegrationKey) {
 		return &PaymentResponse{Error: "The response is invalid or has been tampered with."}
 	}
@@ -374,45 +380,48 @@ func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
 	return statusResponse, nil
 }
 
-func Poll(requestURL string, maxAttempts int, duration time.Duration) bool {
+func Poll(requestURL string, maxAttempts int, duration time.Duration) (bool, string) {
 	attempts := 0
-	success := false // to track the outcome of the polling process
 
 	// Create a context with a timeout that generously covers the maximum polling duration
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxAttempts)*duration*time.Second+10*time.Second)
 	defer cancel() // Ensure the context is cancelled to free resources
 
+	var message string // To store the outcome message
+
 	// Poll every 15 seconds for payment status until the context is done, condition is met, or maxAttempts is reached
-	wait.PollUntilWithContext(ctx, duration*time.Second, func(ctx context.Context) (bool, error) {
+	result := wait.PollUntilWithContext(ctx, duration*time.Second, func(ctx context.Context) (bool, error) {
 		attempts++
 		statusResponse, err := FetchPaymentStatus(requestURL)
 		if err != nil {
-			fmt.Printf("Error fetching payment status: %v\n", err)
+			message = fmt.Sprintf("Error fetching payment status: %v", err)
 			return false, err // Stop polling due to error
 		}
 
 		fmt.Printf("Attempt %d - Checking payment status: %s\n", attempts, statusResponse.Status)
 
 		if statusResponse.Status == "Paid" {
-			fmt.Println("Payment successful.")
-			success = true
+			message = statusResponse.Status
 			return true, nil // Stop polling because payment was successful
 		}
 
 		if statusResponse.Status == "Cancelled" {
-			fmt.Println("Payment cancelled.")
-			success = true
+			message = statusResponse.Status
 			return true, nil // Stop polling because payment was cancelled
 		}
 
 		if attempts >= maxAttempts {
-			fmt.Println("Maximum attempts reached without payment confirmation.")
-			return true, fmt.Errorf("payment not confirmed after %d attempts", maxAttempts) // Stop polling
+			message = fmt.Sprintf("Maximum attempts reached without payment confirmation after %d attempts", maxAttempts)
+			return true, fmt.Errorf(message) // Stop polling
 		}
 
 		// Continue polling
 		return false, nil
 	})
 
-	return success // Return the final result of the polling
+	// Check result to determine the final return values
+	if result == nil {
+		return true, message // Polling succeeded without errors
+	}
+	return false, message // Polling stopped due to an error or condition met
 }
