@@ -374,8 +374,9 @@ func FetchPaymentStatus(requestURL string) (*PaymentStatusResponse, error) {
 	return statusResponse, nil
 }
 
-func Poll(requestURL string, maxAttempts int, duration time.Duration) {
+func Poll(requestURL string, maxAttempts int, duration time.Duration) bool {
 	attempts := 0
+	success := false // to track the outcome of the polling process
 
 	// Create a context with a timeout that generously covers the maximum polling duration
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(maxAttempts)*duration*time.Second+10*time.Second)
@@ -394,12 +395,14 @@ func Poll(requestURL string, maxAttempts int, duration time.Duration) {
 
 		if statusResponse.Status == "Paid" {
 			fmt.Println("Payment successful.")
+			success = true
 			return true, nil // Stop polling because payment was successful
 		}
 
 		if statusResponse.Status == "Cancelled" {
 			fmt.Println("Payment cancelled.")
-			return true, nil // Stop polling because payment was successful
+			success = true
+			return true, nil // Stop polling because payment was cancelled
 		}
 
 		if attempts >= maxAttempts {
@@ -410,4 +413,6 @@ func Poll(requestURL string, maxAttempts int, duration time.Duration) {
 		// Continue polling
 		return false, nil
 	})
+
+	return success // Return the final result of the polling
 }
