@@ -1,4 +1,4 @@
-package paynow
+package main
 
 import (
 	"bytes"
@@ -154,7 +154,7 @@ func (pn *Paynow) SendMobile(p *Payment, phone, method string) *PaymentResponse 
 	}
 
 	// Generate the hash
-	hash := GenerateHash(url.QueryEscape(pn.ResultURL), url.QueryEscape(pn.ReturnURL), p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), p.AuthEmail, method, phone, "Message", pn.IntegrationKey)
+	hash := GenerateHash(pn.ResultURL, pn.ReturnURL, p.Reference, fmt.Sprintf("%f", p.Total()), pn.IntegrationID, url.QueryEscape(p.Info()), p.AuthEmail, method, phone, "Message", pn.IntegrationKey)
 
 	uri := "https://www.paynow.co.zw/interface/remotetransaction"
 	requestMethod := "POST"
@@ -163,8 +163,8 @@ func (pn *Paynow) SendMobile(p *Payment, phone, method string) *PaymentResponse 
 	writer := multipart.NewWriter(payload)
 
 	// Add fields to the writer. Replace hardcoded values with values from the Payment object as needed
-	_ = writer.WriteField("resulturl", url.QueryEscape(pn.ResultURL))
-	_ = writer.WriteField("returnurl", url.QueryEscape(pn.ReturnURL))
+	_ = writer.WriteField("resulturl", pn.ResultURL)
+	_ = writer.WriteField("returnurl", pn.ReturnURL)
 	_ = writer.WriteField("reference", p.Reference)
 	_ = writer.WriteField("amount", fmt.Sprintf("%f", amount))
 	_ = writer.WriteField("id", pn.IntegrationID)
