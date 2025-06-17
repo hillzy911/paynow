@@ -25,4 +25,17 @@ func main() {
 		Poll(response.PollURL, 5, 8)
 	}
 
+	// if response.RemoteOTPURL != "" {
+	// 	// Generate QR code URL and deep link
+	// 	remoteotpurl = response.RemoteOTPURL
+	// 	otpreference := response.OTPReference
+	// 	fmt.Println("Remote OTP:", remoteotpurl)
+	// 	fmt.Println("OTP REF:", otpreference)
+	// 	payment, err := pn.VerifyOmariPayment(remoteotpurl, "012345")
+	// 	if err != nil {
+	// 		fmt.Println(response.Error)
+	// 	}
+	// 	fmt.Println(payment.Status)
+	// }
+
 }

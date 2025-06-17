@@ -47,6 +47,8 @@ type PaymentResponse struct {
 	Error                string `json:"error,omitempty"` // Pointer to make it optional
 	AuthorizationCode    string `json:"authorizationcode,omitempty"`
 	AuthorizationExpires string `json:"authorizationexpires,omitempty"`
+	OTPReference         string `json:"otpreference,omitempty"`
+	RemoteOTPURL         string `json:"remoteotpurl,omitempty"`
 }
 
 // PaymentStatusResponse defines the structure for the Paynow status update.
@@ -245,9 +247,75 @@ func NewPaymentResponse(response string) (*PaymentResponse, error) {
 			resp.AuthorizationCode = values.Get("authorizationcode")
 			resp.AuthorizationExpires = values.Get("authorizationexpires")
 		}
+		if values.Get("otpreference") != "" {
+			resp.OTPReference = values.Get("otpreference")
+			resp.RemoteOTPURL = values.Get("remoteotpurl")
+		}
 	}
 
 	return resp, nil
+}
+
+// Assuming the Paynow and Payment structs are defined elsewhere
+func (pn *Paynow) VerifyOmariPayment(uri, otp string) (*PaymentStatusResponse, error) {
+
+	// Generate the hash
+	hash := GenerateHash(pn.IntegrationID, otp, "Message", pn.IntegrationKey)
+
+	requestMethod := "POST"
+
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+
+	// Add fields to the writer. Replace hardcoded values with values from the Payment object as needed
+	_ = writer.WriteField("id", pn.IntegrationID)
+	_ = writer.WriteField("otp", otp)
+	_ = writer.WriteField("status", "Message")
+	_ = writer.WriteField("hash", hash)
+
+	err := writer.Close()
+	if err != nil {
+		fmt.Println(err)
+		return nil, fmt.Errorf("error closing writer: %v", err)
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(requestMethod, uri, payload)
+	if err != nil {
+		fmt.Println(err)
+		return nil, fmt.Errorf("error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return nil, fmt.Errorf("error sending request: %v", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	// Assuming the response is URL-encoded, parse it
+	responseValues, err := url.ParseQuery(string(body))
+	if err != nil {
+		return nil, fmt.Errorf("error parsing response string: %v", err)
+	}
+
+	// Manually construct PaymentStatusResponse from parsed values
+	statusResponse := &PaymentStatusResponse{
+		Reference:       responseValues.Get("reference"),
+		PaynowReference: responseValues.Get("paynowreference"),
+		PollURL:         responseValues.Get("pollurl"),
+		Status:          responseValues.Get("status"),
+		Hash:            responseValues.Get("hash"),
+	}
+
+	return statusResponse, nil
 }
 
 func NewPayment(reference, authEmail string) *Payment {
